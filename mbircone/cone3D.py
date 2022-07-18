@@ -11,7 +11,6 @@ import warnings
 __lib_path = os.path.join(os.path.expanduser('~'), '.cache', 'mbircone')
 __namelen_sysmatrix = 20
 
-
 def _mbircone_lib_path():
     """Returns the path to the cache directory used by mbircone
     """
@@ -248,7 +247,7 @@ def compute_sino_params(dist_source_detector, magnification,
         rotation_offset (float, optional): [Default=0.0] Distance in :math:`ALU` from source-detector line to axis of rotation in the object space.
             This is normally set to zero.
         delta_pixel_detector (float, optional): [Default=1.0] Scalar value of detector pixel spacing in :math:`ALU`.
-    
+        
     Returns:
         Dictionary containing sino parameters as required by the Cython code
     """
@@ -282,7 +281,7 @@ def compute_sino_params(dist_source_detector, magnification,
 
 
 def compute_img_params(sinoparams, delta_pixel_image=None, ror_radius=None):
-    """ Compute image parameters that specify coordinates and bounds relating to the image. 
+    """ Compute image parameters that specify coordinates and bounds relating to the image.
         For detailed specifications of imgparams, see cone3D.interface_cy_c
     
     Args:
@@ -292,11 +291,12 @@ def compute_img_params(sinoparams, delta_pixel_image=None, ror_radius=None):
         ror_radius (float, optional): [Default=None] Scalar value of radius of reconstruction in :math:`ALU`.
             If None, automatically set.
             Pixels outside the radius ror_radius in the :math:`(x,y)` plane are disregarded in the reconstruction.
-    
+           
     Returns:
         Dictionary containing image parameters as required by the Cython code
      
     """
+    
     # port code from https://github.com/cabouman/OpenMBIR-ConeBeam/blob/fbf3eddcadad1bd1cfb657f58c5b32f1204a12d1/utils/Preprocessing/Modular_PreprocessingRoutines/computeImgParams.m
 
     # Part 1: find radius of circle
@@ -391,12 +391,132 @@ def compute_img_params(sinoparams, delta_pixel_image=None, ror_radius=None):
 
     return imgparams
 
+def compute_sino_params_lamino(num_views, num_det_rows, num_det_channels,
+                    theta,
+                    channel_offset=0.0,
+                    delta_pixel_detector=1.0):
+                    
+    """ Compute sinogram parameters specify coordinates and bounds relating to the sinogram
+        Function signatures are in laminogram coordinates, output corresponds to sinogram.
+        For detailed specifications of sinoparams, see cone3D.interface_cy_c
+    
+    Args:
+        num_views (int): Number of views in laminogram data
+        num_det_rows (int): Number of rows in laminogram data
+        num_det_channels (int): Number of channels in laminogram data
+        
+        theta (float): Laminographic angle; pi/2 - grazing angle
+
+        channel_offset (float, optional): [Default=0.0] Distance in :math:`ALU` from center of detector to the "projected axis of rotation" along a row.
+        delta_pixel_detector (float, optional): [Default=1.0] Scalar value of detector pixel spacing in :math:`ALU`.
+        
+    Returns:
+        Dictionary containing sino parameters as required by the Cython code
+    """
+  
+    # This needs to be large
+    dist_factor = 500
+    dist_source_detector = (dist_factor) * (delta_pixel_detector) * max(num_det_channels, num_det_rows)**2
+
+    sinoparams = dict()
+    sinoparams['N_dv'] = num_det_channels
+    sinoparams['N_dw'] = num_det_rows
+    sinoparams['N_beta'] = num_views
+    sinoparams['Delta_dv'] = delta_pixel_detector
+    sinoparams['Delta_dw'] = delta_pixel_detector / math.sin(theta)
+    sinoparams['u_s'] = - dist_source_detector
+    sinoparams['u_r'] = 0
+    sinoparams['v_r'] = 0
+    sinoparams['u_d0'] = 0
+
+    dist_dv_to_detector_corner_from_detector_center = - sinoparams['N_dv'] * sinoparams['Delta_dv'] / 2
+    dist_dw_to_detector_corner_from_detector_center = - sinoparams['N_dw'] * sinoparams['Delta_dw'] / 2
+
+    dist_dv_to_detector_center_from_source_detector_line = - channel_offset
+    dist_dw_to_detector_center_from_source_detector_line = - dist_source_detector / math.tan(theta)
+
+    # corner of detector from source-detector-line
+    sinoparams[
+        'v_d0'] = dist_dv_to_detector_corner_from_detector_center + dist_dv_to_detector_center_from_source_detector_line
+    sinoparams[
+        'w_d0'] = dist_dw_to_detector_corner_from_detector_center + dist_dw_to_detector_center_from_source_detector_line
+
+    sinoparams['weightScaler_value'] = -1
+
+    return sinoparams
+
+def compute_img_params_lamino(sinoparams, theta, delta_pixel_image=None, ror_radius=None):
+  
+    """ Compute image parameters that specify coordinates and bounds relating to the image.
+      For detailed specifications of imgparams, see cone3D.interface_cy_c
+
+    Args:
+      sinoparams (dict): Dictionary containing sinogram parameters as required by the Cython code
+      theta (float): Laminographic angle; pi/2 - grazing angle
+      delta_pixel_image (float, optional): [Default=None] Scalar value of image pixel spacing in :math:`ALU`.
+          If None, automatically set to delta_pixel_detector/magnification
+      ror_radius (float, optional): [Default=None] Scalar value of radius of reconstruction in :math:`ALU`.
+          If None, automatically set.
+          Pixels outside the radius ror_radius in the :math:`(x,y)` plane are disregarded in the reconstruction.
+         
+    Returns:
+      Dictionary containing image parameters as required by the Cython code
+
+    """
+  
+    s = delta_pixel_image
+    ell = delta_pixel_image
+
+    imgparams = dict()
+    imgparams['Delta_xy'] = s
+    imgparams['Delta_z'] = ell
+
+    N_C = sinoparams['N_dv']
+    T_C = sinoparams['Delta_dv']
+    N_R = sinoparams['N_dw']
+    T_R = sinoparams['Delta_dw']
+
+    R = (N_R * T_R) / (2 * np.cos(theta))
+    H = (N_R * T_R) / (2 * np.sin(theta))
+
+    y_0 = sinoparams['v_d0'] + (N_C * T_C / 2)
+    r_cyl_1 = (N_C * T_C / 2) - np.abs(y_0)
+    r_cyl_2 = (N_R * T_R / 2)
+    r = min(r_cyl_1,r_cyl_2)
+    
+    if ror_radius is not None:
+        r = ror_radius
+
+    h = H - (r / np.tan(theta))
+
+    imgparams['x_0'] = - R - s / 2
+    imgparams['y_0'] = imgparams['x_0']
+    imgparams['z_0'] = - H + sinoparams['w_d0'] + (N_R * T_R / 2)
+
+    imgparams['N_x'] = int(2 * np.ceil(R / s) + 1)
+    imgparams['N_y'] = imgparams['N_x']
+    imgparams['N_z'] = int(2 * np.ceil(H / ell) + 1)
+
+    imgparams['j_xstart_roi'] = int(np.ceil(R/s) - np.floor(r/s))
+    imgparams['j_ystart_roi'] = imgparams['j_xstart_roi']
+    imgparams['j_zstart_roi'] = int(np.ceil(H/ell) - np.floor(h/ell))
+
+    imgparams['j_xstop_roi'] = int(np.ceil(R/s) + np.floor(r/s))
+    imgparams['j_ystop_roi'] = imgparams['j_xstop_roi']
+    imgparams['j_zstop_roi'] = int(np.ceil(H/ell) + np.floor(h/ell))
+
+    imgparams['N_x_roi'] = -1
+    imgparams['N_y_roi'] = -1
+    imgparams['N_z_roi'] = -1
+
+    return imgparams
 
 def compute_img_size(num_views, num_det_rows, num_det_channels,
                      dist_source_detector,
                      magnification,
                      channel_offset=0.0, row_offset=0.0, rotation_offset=0.0,
-                     delta_pixel_detector=1.0, delta_pixel_image=None, ror_radius=None):
+                     delta_pixel_detector=1.0, delta_pixel_image=None, ror_radius=None,
+                     geometry='cone', theta=math.pi/2):
     """Compute size of the reconstructed image given the geometric parameters.
 
     Args:
@@ -418,6 +538,9 @@ def compute_img_size(num_views, num_det_rows, num_det_channels,
             If None, automatically set.
             Pixels outside the radius ror_radius in the :math:`(x,y)` plane are disregarded in the reconstruction.
 
+        geometry (string, optional): This can be 'cone' or 'lamino'.
+        theta (float, optional): Laminographic angle, if geometry=='lamino'. For default cone beam reconstruction this is unused.
+
     Returns:
         Information about the image size.
 
@@ -426,18 +549,30 @@ def compute_img_size(num_views, num_det_rows, num_det_channels,
 
 
     """
+    
     # Automatically set delta_pixel_image.
+    if geometry=='lamino':
+        magnification = 1
     if delta_pixel_image is None:
         delta_pixel_image = delta_pixel_detector / magnification
 
-    # Calculate parameter dictionary with given input.
-    sinoparams = compute_sino_params(dist_source_detector, magnification,
-                                     num_views=num_views, num_det_rows=num_det_rows, num_det_channels=num_det_channels,
-                                     channel_offset=channel_offset, row_offset=row_offset,
-                                     rotation_offset=rotation_offset,
-                                     delta_pixel_detector=delta_pixel_detector)
+    if geometry=='cone':
+        sinoparams = compute_sino_params(dist_source_detector, magnification,
+                                       num_views=num_views, num_det_rows=num_det_rows, num_det_channels=num_det_channels,
+                                       channel_offset=channel_offset, row_offset=row_offset,
+                                       rotation_offset=rotation_offset,
+                                       delta_pixel_detector=delta_pixel_detector)
 
-    imgparams = compute_img_params(sinoparams, delta_pixel_image=delta_pixel_image, ror_radius=ror_radius)
+        imgparams = compute_img_params(sinoparams, delta_pixel_image=delta_pixel_image, ror_radius=ror_radius)
+    elif geometry=='lamino':
+        sinoparams = compute_sino_params_lamino(num_views, num_det_rows, num_det_channels,
+                                       theta,
+                                       channel_offset=channel_offset,
+                                       delta_pixel_detector=delta_pixel_detector)
+
+        imgparams = compute_img_params_lamino(sinoparams, theta, delta_pixel_image=delta_pixel_image, ror_radius=ror_radius)
+    else:
+        raise Exception("geometry: undefined geometry {}".format(geometry))
 
     # Summarize Information about the image size.
     ROR = [imgparams['N_z'], imgparams['N_x'], imgparams['N_y']]
@@ -484,6 +619,7 @@ def extract_roi_from_ror(image, boundary_size):
 def recon(sino, angles, dist_source_detector, magnification,
           channel_offset=0.0, row_offset=0.0, rotation_offset=0.0,
           delta_pixel_detector=1.0, delta_pixel_image=None, ror_radius=None,
+          geometry='cone', theta=math.pi/2,
           init_image=0.0, prox_image=None,
           sigma_y=None, snr_db=40.0, weights=None, weight_type='unweighted',
           positivity=True, p=1.2, q=2.0, T=1.0, num_neighbors=6,
@@ -504,10 +640,13 @@ def recon(sino, angles, dist_source_detector, magnification,
         
         delta_pixel_detector (float, optional): [Default=1.0] Scalar value of detector pixel spacing in :math:`ALU`.
         delta_pixel_image (float, optional): [Default=None] Scalar value of image pixel spacing in :math:`ALU`.
-            If None, automatically set to delta_pixel_detector/magnification  
+            If None, automatically set to delta_pixel_detector/magnification
         ror_radius (float, optional): [Default=None] Scalar value of radius of reconstruction in :math:`ALU`.
             If None, automatically set with compute_img_params.
             Pixels outside the radius ror_radius in the :math:`(x,y)` plane are disregarded in the reconstruction.
+        
+        geometry (string, optional): This can be 'cone' or 'lamino'.
+        theta (float, optional): Laminographic angle, if geometry=='lamino'. For default cone beam reconstruction this is unused.
         
         init_image (ndarray, optional): [Default=0.0] Initial value of reconstruction image, specified by either a scalar value or a 3D numpy array with shape (num_img_slices,num_img_rows,num_img_cols)
         prox_image (ndarray, optional): [Default=None] 3D proximal map input image. 3D numpy array with shape (num_img_slices,num_img_rows,num_img_cols)
@@ -525,7 +664,7 @@ def recon(sino, angles, dist_source_detector, magnification,
                 - Option "transmission_root" is commonly used with transmission CT data to improve image homogeneity;
                 - Option "emission" is appropriate for emission CT data.
 
-        positivity (bool, optional): [Default=True] Boolean value that determines if positivity constraint is enforced. 
+        positivity (bool, optional): [Default=True] Boolean value that determines if positivity constraint is enforced.
             The positivity parameter defaults to True; however, it should be changed to False when used in applications that can generate negative image values.
         p (float, optional): [Default=1.2] Scalar value in range :math:`[1,2]` that specifies the qGGMRF shape parameter.
         q (float, optional): [Default=2.0] Scalar value in range :math:`[p,1]` that specifies the qGGMRF shape parameter.
@@ -555,7 +694,7 @@ def recon(sino, angles, dist_source_detector, magnification,
     """
 
     # Internally set
-    # NHICD_ThresholdAllVoxels_ErrorPercent=80, NHICD_percentage=15, NHICD_random=20, 
+    # NHICD_ThresholdAllVoxels_ErrorPercent=80, NHICD_percentage=15, NHICD_random=20,
     # zipLineMode=2, N_G=2, numVoxelsPerZiplineMax=200
 
     if num_threads is None:
@@ -564,18 +703,30 @@ def recon(sino, angles, dist_source_detector, magnification,
     os.environ['OMP_NUM_THREADS'] = str(num_threads)
     os.environ['OMP_DYNAMIC'] = 'true'
 
+    if geometry=='lamino':
+        magnification = 1
     if delta_pixel_image is None:
         delta_pixel_image = delta_pixel_detector / magnification
 
     (num_views, num_det_rows, num_det_channels) = sino.shape
 
-    sinoparams = compute_sino_params(dist_source_detector, magnification,
-                                     num_views=num_views, num_det_rows=num_det_rows, num_det_channels=num_det_channels,
-                                     channel_offset=channel_offset, row_offset=row_offset,
-                                     rotation_offset=rotation_offset,
-                                     delta_pixel_detector=delta_pixel_detector)
+    if geometry=='cone':
+        sinoparams = compute_sino_params(dist_source_detector, magnification,
+                                       num_views=num_views, num_det_rows=num_det_rows, num_det_channels=num_det_channels,
+                                       channel_offset=channel_offset, row_offset=row_offset,
+                                       rotation_offset=rotation_offset,
+                                       delta_pixel_detector=delta_pixel_detector)
 
-    imgparams = compute_img_params(sinoparams, delta_pixel_image=delta_pixel_image, ror_radius=ror_radius)
+        imgparams = compute_img_params(sinoparams, delta_pixel_image=delta_pixel_image, ror_radius=ror_radius)
+    elif geometry=='lamino':
+        sinoparams = compute_sino_params_lamino(num_views, num_det_rows, num_det_channels,
+                                       theta,
+                                       channel_offset=channel_offset,
+                                       delta_pixel_detector=delta_pixel_detector)
+
+        imgparams = compute_img_params_lamino(sinoparams, theta, delta_pixel_image=delta_pixel_image, ror_radius=ror_radius)
+    else:
+        raise Exception("geometry: undefined geometry {}".format(geometry))
 
     hash_val = hash_params(angles, sinoparams, imgparams)
     sysmatrix_fname = _gen_sysmatrix_fname(lib_path=lib_path, sysmatrix_name=hash_val[:__namelen_sysmatrix])
@@ -597,7 +748,7 @@ def recon(sino, angles, dist_source_detector, magnification,
 
     # Set automatic value of sigma_y
     if sigma_y is None:
-        sigma_y = auto_sigma_y(sino, magnification, weights, snr_db, 
+        sigma_y = auto_sigma_y(sino, magnification, weights, snr_db,
                                delta_pixel_image=delta_pixel_image,
                                delta_pixel_detector=delta_pixel_detector)
 
@@ -687,6 +838,7 @@ def project(image, angles,
             dist_source_detector, magnification,
             channel_offset=0.0, row_offset=0.0, rotation_offset=0.0,
             delta_pixel_detector=1.0, delta_pixel_image=None, ror_radius=None,
+            geometry='cone', theta=math.pi/2,
             num_threads=None, verbose=1, lib_path=__lib_path):
     """Compute 3D cone beam forward-projection.
     
@@ -709,10 +861,13 @@ def project(image, angles,
         
         delta_pixel_detector (float, optional): [Default=1.0] Scalar value of detector pixel spacing in :math:`ALU`.
         delta_pixel_image (float, optional): [Default=None] Scalar value of image pixel spacing in :math:`ALU`.
-            If None, automatically set to delta_pixel_detector/magnification  
+            If None, automatically set to delta_pixel_detector/magnification
         ror_radius (float, optional): [Default=None] Scalar value of radius of reconstruction in :math:`ALU`.
             If None, automatically set with compute_img_params.
             Pixels outside the radius ror_radius in the :math:`(x,y)` plane are disregarded.
+        
+        geometry (string, optional): This can be 'cone' or 'lamino'.
+        theta (float, optional): Laminographic angle, if geometry=='lamino'. For default cone beam reconstruction this is unused.
         
         num_threads (int, optional): [Default=None] Number of compute threads requested when executed.
             If None, num_threads is set to the number of cores in the system
@@ -721,25 +876,37 @@ def project(image, angles,
     Returns:
         ndarray: 3D numpy array containing sinogram with shape (num_views, num_det_rows, num_det_channels).
     """
-
+    
     if num_threads is None:
         num_threads = cpu_count(logical=False)
 
     os.environ['OMP_NUM_THREADS'] = str(num_threads)
     os.environ['OMP_DYNAMIC'] = 'true'
 
+    if geometry=='lamino':
+        magnification = 1
     if delta_pixel_image is None:
         delta_pixel_image = delta_pixel_detector / magnification
 
     num_views = len(angles)
 
-    sinoparams = compute_sino_params(dist_source_detector, magnification,
-                                     num_views=num_views, num_det_rows=num_det_rows, num_det_channels=num_det_channels,
-                                     channel_offset=channel_offset, row_offset=row_offset,
-                                     rotation_offset=rotation_offset,
-                                     delta_pixel_detector=delta_pixel_detector)
+    if geometry=='cone':
+        sinoparams = compute_sino_params(dist_source_detector, magnification,
+                                       num_views=num_views, num_det_rows=num_det_rows, num_det_channels=num_det_channels,
+                                       channel_offset=channel_offset, row_offset=row_offset,
+                                       rotation_offset=rotation_offset,
+                                       delta_pixel_detector=delta_pixel_detector)
 
-    imgparams = compute_img_params(sinoparams, delta_pixel_image=delta_pixel_image, ror_radius=ror_radius)
+        imgparams = compute_img_params(sinoparams, delta_pixel_image=delta_pixel_image, ror_radius=ror_radius)
+    elif geometry=='lamino':
+        sinoparams = compute_sino_params_lamino(num_views, num_det_rows, num_det_channels,
+                                       theta,
+                                       channel_offset=channel_offset,
+                                       delta_pixel_detector=delta_pixel_detector)
+
+        imgparams = compute_img_params_lamino(sinoparams, theta, delta_pixel_image=delta_pixel_image, ror_radius=ror_radius)
+    else:
+        raise Exception("geometry: undefined geometry {}".format(geometry))
 
     (num_img_slices, num_img_rows, num_img_cols) = image.shape
 
@@ -766,3 +933,4 @@ def project(image, angles,
 
     proj = ci.project(image, settings)
     return proj
+
