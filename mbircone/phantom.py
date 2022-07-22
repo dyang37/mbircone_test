@@ -187,6 +187,36 @@ def gen_microscopy_sample_3d(num_rows, num_cols, num_slices):
 
     return np.transpose(image, (2, 0, 1))
 
+def gen_lamino_sample_3d(num_rows, num_cols, num_slices, edge_pixel_thickness=1):
+    
+    num_slices_base = num_slices * 2
+    num_rows_base = num_rows * 2
+    num_cols_base = num_cols * 2
+
+    phantom = gen_microscopy_sample_3d(num_rows_base, num_cols_base, num_slices_base)
+    
+    slice_start = ( num_slices_base - num_slices ) // 2
+    slice_end = ( num_slices_base + num_slices ) // 2
+    row_start = ( num_rows_base - num_rows ) // 2
+    row_end = ( num_rows_base + num_rows ) // 2
+    col_start = ( num_cols_base - num_cols ) // 2
+    col_end = ( num_cols_base + num_cols ) // 2
+
+    phantom = phantom[slice_start:slice_end,row_start:row_end,col_start:col_end]
+    
+    if edge_pixel_thickness <= 0:
+        return phantom
+    
+    phantom[:edge_pixel_thickness]=2.0
+    phantom[-edge_pixel_thickness:]=2.0
+    phantom[:,:edge_pixel_thickness]=2.0
+    phantom[:,-edge_pixel_thickness:]=2.0
+    phantom[:,:,:edge_pixel_thickness]=2.0
+    phantom[:,:,-edge_pixel_thickness:]=2.0
+    
+    return phantom
+
+
 def nrmse(image, reference_image):
     """
     Compute the normalized root mean square error between image and reference_image.
@@ -227,6 +257,7 @@ def _gen_ellipse(x_grid, y_grid, x0, y0, a, b, gray_level, theta=0):
              + ((x_grid - x0) * np.sin(theta) - (y_grid - y0) * np.cos(theta)) ** 2 / b ** 2 <= 1.0) * gray_level
 
     return image
+
 
 
 def _gen_ellipsoid(x_grid, y_grid, z_grid, x0, y0, z0, a, b, c, gray_level, alpha=0, beta=0, gamma=0):
