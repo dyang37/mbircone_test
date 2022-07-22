@@ -476,9 +476,8 @@ def compute_img_params_lamino(sinoparams, theta, delta_pixel_image=None, ror_rad
     N_R = sinoparams['N_dw']
     T_R = sinoparams['Delta_dw']
 
-    R = (N_R * T_R) / (2 * np.cos(theta))
     H = (N_R * T_R) / (2 * np.sin(theta))
-
+    
     y_0 = sinoparams['v_d0'] + (N_C * T_C / 2)
     r_cyl_1 = (N_C * T_C / 2) - np.abs(y_0)
     r_cyl_2 = (N_R * T_R / 2)
@@ -488,6 +487,13 @@ def compute_img_params_lamino(sinoparams, theta, delta_pixel_image=None, ror_rad
         r = ror_radius
 
     h = H - (r / np.tan(theta))
+    
+    ROR_SHAPE = 'TIGHT'
+    
+    if ROR_SHAPE == 'TIGHT':
+        R = (N_R * T_R) / (2 * np.cos(theta))
+    elif ROR_SHAPE == 'BROAD':
+        R = (N_R * T_R) / (np.cos(theta)) - r
 
     imgparams['x_0'] = - R - s / 2
     imgparams['y_0'] = imgparams['x_0']
