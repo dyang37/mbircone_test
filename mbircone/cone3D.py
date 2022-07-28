@@ -491,7 +491,10 @@ def compute_img_params_lamino(sinoparams, theta, delta_pixel_image=None, ror_rad
     ROR_SHAPE = 'TIGHT'
     
     if ROR_SHAPE == 'TIGHT':
-        R = (N_R * T_R) / (2 * np.cos(theta))
+        # set to the geometrically correct radius
+        R_cyl_1 = (N_C * T_C / 2) - np.abs(y_0)
+        R_cyl_2 = (N_R * T_R) / (2 * np.cos(theta))
+        R = min(R_cyl_1, R_cyl_2)
     elif ROR_SHAPE == 'BROAD':
         R = (N_R * T_R) / (np.cos(theta)) - r
 

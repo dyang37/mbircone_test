@@ -114,7 +114,7 @@ for view_idx in [0, num_views//4, num_views//2]:
         plot_image(sino[view_idx, :, :], title=f'sinogram view angle {view_angle} ',
                              filename=os.path.join(save_path, f'sino-shepp-logan-3D-view_angle{view_angle}.png'))
 
-error = recon - phantom
+error = np.abs(recon - phantom)
 print(f'normalized rms reconstruction error: {np.sqrt(np.mean(error**2))/np.sqrt(np.mean(phantom**2)):.3g}')
 
 
@@ -146,13 +146,13 @@ plot_image(display_recon[:,display_x,:], title=f'qGGMRF recon, coronal slice {di
 plot_image(display_recon[:,:,display_y], title=f'qGGMRF recon, sagittal slice {display_y}, Θ='+str(theta_degrees)+' degrees',
                      filename=os.path.join(save_path, 'recon_sagittal.png'), vmin=vmin, vmax=vmax)
 # error images
-plot_image(display_error[display_slice], title=f'qGGMRF recon, axial slice {display_slice}, Θ='+str(theta_degrees)+' degrees',
+plot_image(display_error[display_slice], title=f'error image, axial slice {display_slice}, Θ='+str(theta_degrees)+' degrees',
                   filename=os.path.join(save_path, 'error_axial.png'), vmin=0, vmax=0.40)
-plot_image(display_error[display_slice], title=f'qGGMRF recon, axial slice {display_slice}, Θ='+str(theta_degrees)+' degrees',
+plot_image(display_error[display_slice], title=f'error image, axial slice {display_slice}, Θ='+str(theta_degrees)+' degrees',
                   filename=os.path.join(save_path, 'error_axial.png'), vmin=vmin, vmax=vmax)
-plot_image(display_error[:,display_x,:], title=f'qGGMRF recon, coronal slice {display_x}, Θ='+str(theta_degrees)+' degrees',
+plot_image(display_error[:,display_x,:], title=f'error image, coronal slice {display_x}, Θ='+str(theta_degrees)+' degrees',
                   filename=os.path.join(save_path, 'error_coronal.png'), vmin=vmin, vmax=vmax)
-plot_image(display_error[:,:,display_y], title=f'qGGMRF recon, sagittal slice {display_y}, Θ='+str(theta_degrees)+' degrees',
+plot_image(display_error[:,:,display_y], title=f'error image, sagittal slice {display_y}, Θ='+str(theta_degrees)+' degrees',
                   filename=os.path.join(save_path, 'error_sagittal.png'), vmin=vmin, vmax=vmax)
 print(f"Images saved to {save_path}.")
 input("Press Enter")
