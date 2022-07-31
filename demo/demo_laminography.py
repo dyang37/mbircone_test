@@ -15,9 +15,9 @@ num_views = 128
 
 # Phantom parameters
 num_slices_phantom = 16
-num_rows_phantom = 128
-num_cols_phantom = 128
-edge_pixel_thickness = 0
+num_rows_phantom = 90
+num_cols_phantom = 90
+edge_pixel_thickness = 3
 
 
 # begin experiment
@@ -70,8 +70,9 @@ print('ROR shape is:', num_slices_ROR, num_rows_ROR, num_cols_ROR)
 print('ROI shape is:', num_slices_ROI, num_rows_ROI, num_cols_ROI)
 print('phantom shape is:', num_slices_phantom, num_rows_phantom, num_cols_phantom)
 
-if num_slices_phantom > num_slices_ROI or num_rows_phantom > num_rows_ROI or num_cols_phantom > num_cols_ROI:
-    print('Warning, phantom size is too big for ROI shape.')
+#max_phantom_size =
+#if num_slices_phantom > num_slices_ROI or num_rows_phantom > num_rows_ROI or num_cols_phantom > num_cols_ROI:
+#    print('Warning, phantom size is too big for ROI shape.')
 
 # Pad phantom to ROR size:
 pad_slices = num_slices_ROR - num_slices_phantom
@@ -114,13 +115,15 @@ for view_idx in [0, num_views//4, num_views//2]:
         plot_image(sino[view_idx, :, :], title=f'sinogram view angle {view_angle} ',
                              filename=os.path.join(save_path, f'sino-shepp-logan-3D-view_angle{view_angle}.png'))
 
-error = np.abs(recon - phantom)
-print(f'normalized rms reconstruction error: {np.sqrt(np.mean(error**2))/np.sqrt(np.mean(phantom**2)):.3g}')
+
 
 
 display_phantom = phantom[pad_slices_L:-pad_slices_R,pad_rows_L:-pad_rows_R,pad_cols_L:-pad_cols_R]
 display_recon = recon[pad_slices_L:-pad_slices_R,pad_rows_L:-pad_rows_R,pad_cols_L:-pad_cols_R]
-display_error = error[pad_slices_L:-pad_slices_R,pad_rows_L:-pad_rows_R,pad_cols_L:-pad_cols_R]
+
+display_error = np.abs(display_recon - display_phantom)
+print(f'normalized rms reconstruction error: {np.sqrt(np.mean(display_error**2))/np.sqrt(np.mean(display_phantom**2)):.3g}')
+
 
 
 # Set display indexes for phantom and recon images
