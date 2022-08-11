@@ -13,6 +13,7 @@ __lib_path = os.path.join(os.path.expanduser('~'), '.cache', 'mbircone')
 __namelen_sysmatrix = 20
 
 
+
 def _sino_indicator(sino):
     """Compute a binary function that indicates the region of sinogram support.
 
@@ -227,7 +228,7 @@ def compute_sino_params(dist_source_detector, magnification,
         rotation_offset (float, optional): [Default=0.0] Distance in :math:`ALU` from source-detector line to axis of rotation in the object space.
             This is normally set to zero.
         delta_pixel_detector (float, optional): [Default=1.0] Scalar value of detector pixel spacing in :math:`ALU`.
-    
+        
     Returns:
         Dictionary containing sino parameters as required by the Cython code
     """
@@ -261,7 +262,7 @@ def compute_sino_params(dist_source_detector, magnification,
 
 
 def compute_img_params(sinoparams, delta_pixel_image=None, ror_radius=None):
-    """ Compute image parameters that specify coordinates and bounds relating to the image. 
+    """ Compute image parameters that specify coordinates and bounds relating to the image.
         For detailed specifications of imgparams, see cone3D.interface_cy_c
     
     Args:
@@ -271,11 +272,12 @@ def compute_img_params(sinoparams, delta_pixel_image=None, ror_radius=None):
         ror_radius (float, optional): [Default=None] Scalar value of radius of reconstruction in :math:`ALU`.
             If None, automatically set.
             Pixels outside the radius ror_radius in the :math:`(x,y)` plane are disregarded in the reconstruction.
-    
+           
     Returns:
         Dictionary containing image parameters as required by the Cython code
      
     """
+    
     # port code from https://github.com/cabouman/OpenMBIR-ConeBeam/blob/fbf3eddcadad1bd1cfb657f58c5b32f1204a12d1/utils/Preprocessing/Modular_PreprocessingRoutines/computeImgParams.m
 
     # Part 1: find radius of circle
@@ -385,6 +387,7 @@ def compute_sino_params_lamino(num_views, num_det_rows, num_det_channels,
         num_det_channels (int): Number of channels in laminogram data
         
         theta (float): Laminographic angle; pi/2 - grazing angle
+        
         channel_offset (float, optional): [Default=0.0] Distance in :math:`ALU` from center of detector to the "projected axis of rotation" along a row.
         delta_pixel_detector (float, optional): [Default=1.0] Scalar value of detector pixel spacing in :math:`ALU`.
         
@@ -427,6 +430,7 @@ def compute_img_params_lamino(sinoparams, theta, delta_pixel_image=None, ror_rad
   
     """ Compute image parameters that specify coordinates and bounds relating to the image.
       For detailed specifications of imgparams, see cone3D.interface_cy_c
+      
     Args:
       sinoparams (dict): Dictionary containing sinogram parameters as required by the Cython code
       theta (float): Laminographic angle; pi/2 - grazing angle
@@ -525,6 +529,9 @@ def compute_img_size(num_views, num_det_rows, num_det_channels,
         geometry (string, optional): This can be 'cone' or 'lamino'.
         theta (float, optional): Laminographic angle, if geometry=='lamino'. For default cone beam reconstruction this is unused.
 
+        geometry (string, optional): This can be 'cone' or 'lamino'.
+        theta (float, optional): Laminographic angle, if geometry=='lamino'. For default cone beam reconstruction this is unused.
+
     Returns:
         Information about the image size.
 
@@ -533,12 +540,12 @@ def compute_img_size(num_views, num_det_rows, num_det_channels,
 
 
     """
+    
     # Automatically set delta_pixel_image.
     if geometry=='lamino':
         magnification = 1
     if delta_pixel_image is None:
         delta_pixel_image = delta_pixel_detector / magnification
-
 
     if geometry=='cone':
         # Calculate parameter dictionary with given input.
@@ -628,7 +635,7 @@ def recon(sino, angles, dist_source_detector, magnification,
         
         delta_pixel_detector (float, optional): [Default=1.0] Scalar value of detector pixel spacing in :math:`ALU`.
         delta_pixel_image (float, optional): [Default=None] Scalar value of image pixel spacing in :math:`ALU`.
-            If None, automatically set to delta_pixel_detector/magnification  
+            If None, automatically set to delta_pixel_detector/magnification
         ror_radius (float, optional): [Default=None] Scalar value of radius of reconstruction in :math:`ALU`.
             If None, automatically set with compute_img_params.
             Pixels outside the radius ror_radius in the :math:`(x,y)` plane are disregarded in the reconstruction.
@@ -655,7 +662,7 @@ def recon(sino, angles, dist_source_detector, magnification,
                 - Option "transmission_root" is commonly used with transmission CT data to improve image homogeneity;
                 - Option "emission" is appropriate for emission CT data.
 
-        positivity (bool, optional): [Default=True] Boolean value that determines if positivity constraint is enforced. 
+        positivity (bool, optional): [Default=True] Boolean value that determines if positivity constraint is enforced.
             The positivity parameter defaults to True; however, it should be changed to False when used in applications that can generate negative image values.
         p (float, optional): [Default=1.2] Scalar value in range :math:`[1,2]` that specifies the qGGMRF shape parameter.
         q (float, optional): [Default=2.0] Scalar value in range :math:`[p,1]` that specifies the qGGMRF shape parameter.
@@ -685,7 +692,7 @@ def recon(sino, angles, dist_source_detector, magnification,
     """
 
     # Internally set
-    # NHICD_ThresholdAllVoxels_ErrorPercent=80, NHICD_percentage=15, NHICD_random=20, 
+    # NHICD_ThresholdAllVoxels_ErrorPercent=80, NHICD_percentage=15, NHICD_random=20,
     # zipLineMode=2, N_G=2, numVoxelsPerZiplineMax=200
 
     if num_threads is None:
@@ -736,7 +743,7 @@ def recon(sino, angles, dist_source_detector, magnification,
 
     # Set automatic value of sigma_y
     if sigma_y is None:
-        sigma_y = auto_sigma_y(sino, magnification, weights, snr_db, 
+        sigma_y = auto_sigma_y(sino, magnification, weights, snr_db,
                                delta_pixel_image=delta_pixel_image,
                                delta_pixel_detector=delta_pixel_detector)
 
@@ -850,7 +857,7 @@ def project(image, angles,
         
         delta_pixel_detector (float, optional): [Default=1.0] Scalar value of detector pixel spacing in :math:`ALU`.
         delta_pixel_image (float, optional): [Default=None] Scalar value of image pixel spacing in :math:`ALU`.
-            If None, automatically set to delta_pixel_detector/magnification  
+            If None, automatically set to delta_pixel_detector/magnification
         ror_radius (float, optional): [Default=None] Scalar value of radius of reconstruction in :math:`ALU`.
             If None, automatically set with compute_img_params.
             Pixels outside the radius ror_radius in the :math:`(x,y)` plane are disregarded.
@@ -865,7 +872,7 @@ def project(image, angles,
     Returns:
         ndarray: 3D numpy array containing sinogram with shape (num_views, num_det_rows, num_det_channels).
     """
-
+    
     if num_threads is None:
         num_threads = cpu_count(logical=False)
 
@@ -922,3 +929,4 @@ def project(image, angles,
 
     proj = ci.project(image, settings)
     return proj
+
