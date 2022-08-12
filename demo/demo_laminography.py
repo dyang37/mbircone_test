@@ -40,7 +40,7 @@ print('Genrating 3D Shepp Logan phantom ...')
 
 
 
-phantom = mbircone.phantom.gen_lamino_sample_3d(num_rows_phantom, num_cols_phantom, num_slices_phantom, edge_pixel_thickness=edge_pixel_thickness)
+phantom = mbircone.phantom.gen_lamino_sample_3d(num_rows_phantom, num_cols_phantom, num_slices_phantom)
 
 # Scale the phantom by a factor of 10.0 to make the projections physical realistic -log attenuation values
 phantom = phantom/10.0
@@ -107,9 +107,9 @@ recon = mbircone.cone3D.recon(sino, angles, None, 1, geometry='lamino', theta=th
 print('recon shape = ', np.shape(recon))
 
 
-######################################################################################
-# Generate phantom, synthetic sinogram, and reconstruction images
-######################################################################################
+#####################################################################################
+ Generate phantom, synthetic sinogram, and reconstruction images
+#####################################################################################
 # sinogram images
 for view_idx in [0, num_views//4, num_views//2]:
         view_angle = int(angles[view_idx]*180/np.pi)
@@ -162,4 +162,3 @@ plot_image(display_error[:,:,display_y], title=f'error image, sagittal slice {di
                   filename=os.path.join(save_path, 'error_sagittal.png'), vmin=vmin, vmax=vmax)
 print(f"Images saved to {save_path}.")
 input("Press Enter")
-s

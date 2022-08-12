@@ -526,11 +526,8 @@ def compute_img_size(num_views, num_det_rows, num_det_channels,
         ror_radius (float, optional): [Default=None] Scalar value of radius of reconstruction in :math:`ALU`.
             If None, automatically set.
             Pixels outside the radius ror_radius in the :math:`(x,y)` plane are disregarded in the reconstruction.
-        geometry (string, optional): This can be 'cone' or 'lamino'.
-        theta (float, optional): Laminographic angle, if geometry=='lamino'. For default cone beam reconstruction this is unused.
-
-        geometry (string, optional): This can be 'cone' or 'lamino'.
-        theta (float, optional): Laminographic angle, if geometry=='lamino'. For default cone beam reconstruction this is unused.
+        geometry (string, optional): This can be 'cone' or 'lamino'. If geometry=='cone', computes image size for a cone beam reconstruction. If geometry=='lamino', computes image size for laminography reconstruction and ignores parameters dist_source_detector, magnification, row_offset, rotation_offset are ignored if geometry=='lamino'.
+        theta (float, optional): Laminographic angle; pi/2 - grazing angle. Ignored if geometry=='cone'.
 
     Returns:
         Information about the image size.
@@ -640,8 +637,8 @@ def recon(sino, angles, dist_source_detector, magnification,
             If None, automatically set with compute_img_params.
             Pixels outside the radius ror_radius in the :math:`(x,y)` plane are disregarded in the reconstruction.
         
-        geometry (string, optional): This can be 'cone' or 'lamino'.
-        theta (float, optional): Laminographic angle, if geometry=='lamino'. For default cone beam reconstruction this is unused.
+        geometry (string, optional): This can be 'cone' or 'lamino'. If geometry=='cone', runs a standard cone-beam reconstruction. If geometry=='lamino', runs a parallel-beam laminography reconstruction and ignores parameters dist_source_detector, magnification, row_offset, rotation_offset.
+        theta (float, optional): Laminographic angle; pi/2 - grazing angle. Ignored if geometry=='cone'.
         
         init_image (ndarray, optional): [Default=0.0] Initial value of reconstruction image, specified by either a scalar value or a 3D numpy array with shape (num_img_slices,num_img_rows,num_img_cols)
         prox_image (ndarray, optional): [Default=None] 3D proximal map input image. 3D numpy array with shape (num_img_slices,num_img_rows,num_img_cols)
@@ -862,8 +859,8 @@ def project(image, angles,
             If None, automatically set with compute_img_params.
             Pixels outside the radius ror_radius in the :math:`(x,y)` plane are disregarded.
         
-        geometry (string, optional): This can be 'cone' or 'lamino'.
-        theta (float, optional): Laminographic angle, if geometry=='lamino'. For default cone beam reconstruction this is unused.
+        geometry (string, optional): This can be 'cone' or 'lamino'. If geometry=='cone', runs a standard cone-beam forward projection. If geometry=='lamino', runs a parallel-beam laminography forward projection, ignores dist_source_detector, magnification, row_offset, rotation_offset.
+        theta (float, optional): Laminographic angle; pi/2 - grazing angle. Ignored if geometry=='cone'.
         
         num_threads (int, optional): [Default=None] Number of compute threads requested when executed.
             If None, num_threads is set to the number of cores in the system
