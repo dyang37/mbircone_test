@@ -17,8 +17,6 @@ num_views = 128
 num_slices_phantom = 16
 num_rows_phantom = 90
 num_cols_phantom = 90
-edge_pixel_thickness = 3
-
 
 # begin experiment
 theta = theta_degrees * (np.pi/180)
@@ -47,16 +45,6 @@ phantom = mbircone.phantom.gen_lamino_sample_3d(num_rows_phantom, num_cols_phant
 # Scale the phantom by a factor of 10.0 to make the projections physical realistic -log attenuation values
 phantom = phantom/10.0
 print('Padded ROR phantom shape = ', np.shape(phantom))
-
-#display_slice = phantom.shape[0] // 2
-#display_x = phantom.shape[1] // 2
-#display_y = phantom.shape[2] * 3// 4
-#plot_image(phantom[display_slice], title=f'phantom, axial slice', filename=os.path.join(save_path, 'phantom_axial.png'), vmin=vmin, vmax=vmax)
-#plot_image(phantom[:,display_x,:], title=f'phantom, coronal slice {display_x}',
-#                     filename=os.path.join(save_path, 'phantom_coronal.png'), vmin=vmin, vmax=vmax)
-#plot_image(phantom[:,:,display_y], title=f'phantom, sagittal slice {display_y}',
-#                     filename=os.path.join(save_path, 'phantom_sagittal.png'), vmin=vmin, vmax=vmax)
-#input("Press Enter")
 
 
 # Compute ROR and ROI sizes
@@ -87,7 +75,20 @@ pad_cols = num_cols_ROR - num_cols_phantom
 pad_cols_L = pad_cols // 2
 pad_cols_R = pad_cols - pad_cols_L
 
-phantom = np.pad(phantom, [(pad_slices_L,pad_slices_R),(pad_rows_L,pad_rows_R),(pad_cols_L,pad_cols_R)], mode='constant', constant_values=0)
+phantom = np.pad(phantom, [(0,0),(pad_rows_L,pad_rows_R),(pad_cols_L,pad_cols_R)], mode='edge')
+phantom = np.pad(phantom, [(pad_slices_L,pad_slices_R), (0,0), (0,0)], mode='constant', constant_values=0.0)
+
+#display_slice = phantom.shape[0] // 2
+#display_x = phantom.shape[1] // 2
+#display_y = phantom.shape[2] * 3// 4
+#plot_image(phantom[display_slice], title=f'phantom, axial slice', filename=os.path.join(save_path, 'phantom_axial.png'), vmin=vmin, vmax=vmax)
+#plot_image(phantom[:,display_x,:], title=f'phantom, coronal slice {display_x}',
+#                     filename=os.path.join(save_path, 'phantom_coronal.png'), vmin=vmin, vmax=vmax)
+#plot_image(phantom[:,:,display_y], title=f'phantom, sagittal slice {display_y}',
+#                     filename=os.path.join(save_path, 'phantom_sagittal.png'), vmin=vmin, vmax=vmax)
+#input("Press Enter")
+
+
 
 ######################################################################################
 # Generate synthetic sinogram
@@ -116,10 +117,12 @@ for view_idx in [0, num_views//4, num_views//2]:
                              filename=os.path.join(save_path, f'sino-shepp-logan-3D-view_angle{view_angle}.png'))
 
 
+display_phantom = phantom
+display_recon = recon
 
 
-display_phantom = phantom[pad_slices_L:-pad_slices_R,pad_rows_L:-pad_rows_R,pad_cols_L:-pad_cols_R]
-display_recon = recon[pad_slices_L:-pad_slices_R,pad_rows_L:-pad_rows_R,pad_cols_L:-pad_cols_R]
+#display_phantom = phantom[pad_slices_L:-pad_slices_R,pad_rows_L:-pad_rows_R,pad_cols_L:-pad_cols_R]
+#display_recon = recon[pad_slices_L:-pad_slices_R,pad_rows_L:-pad_rows_R,pad_cols_L:-pad_cols_R]
 
 display_error = np.abs(display_recon - display_phantom)
 print(f'normalized rms reconstruction error: {np.sqrt(np.mean(display_error**2))/np.sqrt(np.mean(display_phantom**2)):.3g}')
@@ -159,3 +162,4 @@ plot_image(display_error[:,:,display_y], title=f'error image, sagittal slice {di
                   filename=os.path.join(save_path, 'error_sagittal.png'), vmin=vmin, vmax=vmax)
 print(f"Images saved to {save_path}.")
 input("Press Enter")
+s

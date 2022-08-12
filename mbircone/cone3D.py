@@ -468,7 +468,7 @@ def compute_img_params_lamino(sinoparams, theta, delta_pixel_image=None, ror_rad
 
     h = H - (r / np.tan(theta))
     
-    ROR_SHAPE = 'TIGHT'
+    ROR_SHAPE = 'BROAD'
     
     if ROR_SHAPE == 'TIGHT':
         # set to the geometrically correct radius
