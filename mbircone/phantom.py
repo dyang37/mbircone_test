@@ -178,11 +178,13 @@ def gen_microscopy_sample_3d(num_rows, num_cols, num_slices):
 
     return np.transpose(image, (2, 0, 1))
 
-def gen_lamino_sample_3d(num_rows, num_cols, num_slices, edge_pixel_thickness=1):
+def gen_lamino_sample_3d(num_rows, num_cols, num_slices, edge_pixel_thickness=0):
     
-    num_slices_base = num_slices * 2
-    num_rows_base = num_rows * 2
-    num_cols_base = num_cols * 2
+    PROPORTION_OF = .54
+    
+    num_slices_base = int(num_slices / PROPORTION_OF)
+    num_rows_base = int(num_rows / PROPORTION_OF)
+    num_cols_base = int(num_cols / PROPORTION_OF)
 
     phantom = gen_microscopy_sample_3d(num_rows_base, num_cols_base, num_slices_base)
     
@@ -194,6 +196,8 @@ def gen_lamino_sample_3d(num_rows, num_cols, num_slices, edge_pixel_thickness=1)
     col_end = ( num_cols_base + num_cols ) // 2
 
     phantom = phantom[slice_start:slice_end,row_start:row_end,col_start:col_end]
+    
+    phantom = np.clip(phantom, 0.2, 2.0)
     
     if edge_pixel_thickness <= 0:
         return phantom
