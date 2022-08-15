@@ -179,6 +179,17 @@ def gen_microscopy_sample_3d(num_rows, num_cols, num_slices):
     return np.transpose(image, (2, 0, 1))
 
 def gen_lamino_sample_3d(num_rows, num_cols, num_slices, edge_pixel_thickness=0):
+    """
+    Generate a 3D microscopy sample phantom.
+    Args:
+        num_rows: int, number of rows.
+        num_cols: int, number of cols.
+        num_slices: int, number of slices.
+        edge_pixel_thickness: int, optional, thickness of border around object
+    Return:
+        out_image: 3D array, num_slices*num_rows*num_cols
+    """
+    
     
     PROPORTION_OF = .54
     
