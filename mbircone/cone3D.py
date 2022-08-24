@@ -304,7 +304,7 @@ def compute_img_params(sinoparams, delta_pixel_image=None, ror_radius=None):
     if ror_radius is not None:
         r = ror_radius
 
-    # #### Part 2: assignment of parameters ####
+    #### Part 2: assignment of parameters ####
 
     imgparams = dict()
     imgparams['Delta_xy'] = delta_pixel_image
@@ -413,10 +413,12 @@ def compute_sino_params_lamino(num_views, num_det_rows, num_det_channels,
     dist_dv_to_detector_corner_from_detector_center = - sinoparams['N_dv'] * sinoparams['Delta_dv'] / 2
     dist_dw_to_detector_corner_from_detector_center = - sinoparams['N_dw'] * sinoparams['Delta_dw'] / 2
 
+    # Real geometry effect
     dist_dv_to_detector_center_from_source_detector_line = - channel_offset
+    # Set artificially to create angle
     dist_dw_to_detector_center_from_source_detector_line = - dist_source_detector / math.tan(theta)
 
-    # corner of detector from source-detector-line
+    # Corner of detector from source-detector-line
     sinoparams[
         'v_d0'] = dist_dv_to_detector_corner_from_detector_center + dist_dv_to_detector_center_from_source_detector_line
     sinoparams[
@@ -444,53 +446,81 @@ def compute_img_params_lamino(sinoparams, theta, delta_pixel_image=None, ror_rad
       Dictionary containing image parameters as required by the Cython code
     """
   
+    # Step 1: Calculate ROI and ROR shape
+  
+    # Set voxel dimensions
+    # assert delta_pixel_image != None
+    # (it is actually never None because of code structure)
     s = delta_pixel_image
     ell = delta_pixel_image
 
-    imgparams = dict()
-    imgparams['Delta_xy'] = s
-    imgparams['Delta_z'] = ell
-
+    # Retrieve detector dimensions from sinoparams
     N_C = sinoparams['N_dv']
     T_C = sinoparams['Delta_dv']
     N_R = sinoparams['N_dw']
     T_R = sinoparams['Delta_dw']
 
+    # Calculate height of a single cone
+    # = half the height of the double-cone
+    # = half the image height
     H = (N_R * T_R) / (2 * np.sin(theta))
     
+    # Set radius of ROI
+    # Region with measured pixels is intersection of
+    # double-cone and a cylinder.
+    # r_cyl = Radius of cylinder
+    # max_rad prevents radius from becoming large,
+    # which might flatten the image. This code must be
+    # changed if user is given control over ROI
     y_0 = sinoparams['v_d0'] + (N_C * T_C / 2)
-    r_cyl_1 = (N_C * T_C / 2) - np.abs(y_0)
-    r_cyl_2 = (N_R * T_R / 2)
-    r = min(r_cyl_1,r_cyl_2)
-    
-    if ror_radius is not None:
-        r = ror_radius
+    r_cyl = (N_C * T_C / 2) - np.abs(y_0)
+    max_rad = (N_R * T_R / 2)
+    r_roi = min(r_cyl,max_rad)
 
-    h = H - (r / np.tan(theta))
+    # Set height of ROI
+    h = H - (r_roi / np.tan(theta))
     
     ROR_SHAPE = 'BROAD'
     
     if ROR_SHAPE == 'TIGHT':
-        # set to the geometrically correct radius
+        # Set to the geometrically correct radius
+        # See laminography slides for visual explanation
+        # This does not give good results and should not be used
         R_cyl_1 = (N_C * T_C / 2) - np.abs(y_0)
         R_cyl_2 = (N_R * T_R) / (2 * np.cos(theta))
-        R = min(R_cyl_1, R_cyl_2)
+        R_ROR = min(R_cyl_1, R_cyl_2)
     elif ROR_SHAPE == 'BROAD':
-        R = (N_R * T_R) / (np.cos(theta)) - r
+        # Set to experimentally correct radius
+        # See laminography slides for visual explanation
+        r = r_roi
+        w = 2 * h
+        R_ROR = r + w * np.tan(theta)
 
-    imgparams['x_0'] = - R - s / 2
+    # Step 2: Assign Parameters
+    
+    imgparams = dict()
+
+    # Corner of bottom-left voxel (= coordinate of center minus 1/2 voxel width)
+    imgparams['x_0'] = - R_ROR - s / 2
     imgparams['y_0'] = imgparams['x_0']
+    # z_0 = - H - D/tan(theta)
+    # w_d0 = - D/tan(theta) - (N_R * T_R / 2)
     imgparams['z_0'] = - H + sinoparams['w_d0'] + (N_R * T_R / 2)
 
-    imgparams['N_x'] = int(2 * np.ceil(R / s) + 1)
+    # Voxel count in x,y,z, directions
+    imgparams['N_x'] = int(2 * np.ceil(R_ROR / s) + 1)
     imgparams['N_y'] = imgparams['N_x']
     imgparams['N_z'] = int(2 * np.ceil(H / ell) + 1)
 
-    imgparams['j_xstart_roi'] = int(np.ceil(R/s) - np.floor(r/s))
+    imgparams['Delta_xy'] = s
+    imgparams['Delta_z'] = ell
+    
+    # Find coordinates of roi within the voxel image
+    imgparams['j_xstart_roi'] = int(np.ceil(R_ROR/s) - np.floor(r_roi/s))
     imgparams['j_ystart_roi'] = imgparams['j_xstart_roi']
     imgparams['j_zstart_roi'] = int(np.ceil(H/ell) - np.floor(h/ell))
 
-    imgparams['j_xstop_roi'] = int(np.ceil(R/s) + np.floor(r/s))
+    imgparams['j_xstop_roi'] = int(np.ceil(R_ROR/s) + np.floor(r_roi/s))
     imgparams['j_ystop_roi'] = imgparams['j_xstop_roi']
     imgparams['j_zstop_roi'] = int(np.ceil(H/ell) + np.floor(h/ell))
 

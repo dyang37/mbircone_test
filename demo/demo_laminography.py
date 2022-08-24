@@ -108,7 +108,7 @@ print('recon shape = ', np.shape(recon))
 
 
 #####################################################################################
- Generate phantom, synthetic sinogram, and reconstruction images
+# Generate phantom, synthetic sinogram, and reconstruction images
 #####################################################################################
 # sinogram images
 for view_idx in [0, num_views//4, num_views//2]:
