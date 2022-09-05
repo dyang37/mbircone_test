@@ -54,57 +54,50 @@ def _read_scan_dir(scan_dir, view_ids=[]):
     return np.stack(img_list, axis=0)
 
 
-def _downsample_scans(obj_scan, blank_scan, dark_scan, downsample_factor=[1, 1]):
+def _downsample_scans(obj_scan_corrected, blank_scan_corrected, downsample_factor=[1, 1]):
     """Performs Down-sampling to the scan images in the detector plane.
 
     Args:
-        obj_scan (float): A stack of sinograms. 3D numpy array, (num_views, num_slices, num_channels).
-        blank_scan (float): A blank scan. 2D numpy array, (num_slices, num_channels).
-        dark_scan (float): A dark scan. 3D numpy array, (num_slices, num_channels).
+        obj_scan_corrected (float): A stack of sinograms. 3D numpy array, (num_views, num_slices, num_channels).
+        blank_scan_corrected (float): A blank scan. 2D numpy array, (num_slices, num_channels).
         downsample_factor ([int, int]): Default=[1,1]] Two numbers to define down-sample factor.
     Returns:
         Downsampled scans
-        - **obj_scan** (*ndarray, float*): A stack of sinograms. 3D numpy array, (num_views, num_slices, num_channels).
-        - **blank_scan** (*ndarray, float*): A blank scan. 3D numpy array, (num_slices, num_channels).
-        - **dark_scan** (*ndarray, float*): A dark scan. 3D numpy array, (num_slices, num_channels).
+        - **obj_scan_corrected** (*ndarray, float*): A stack of sinograms. 3D numpy array, (num_views, num_slices, num_channels).
+        - **blank_scan_corrected** (*ndarray, float*): A blank scan. 3D numpy array, (num_slices, num_channels).
     """
 
     assert len(downsample_factor) == 2, 'factor({}) needs to be of len 2'.format(downsample_factor)
 
-    new_size1 = downsample_factor[0] * (obj_scan.shape[1] // downsample_factor[0])
-    new_size2 = downsample_factor[1] * (obj_scan.shape[2] // downsample_factor[1])
+    new_size1 = downsample_factor[0] * (obj_scan_corrected.shape[1] // downsample_factor[0])
+    new_size2 = downsample_factor[1] * (obj_scan_corrected.shape[2] // downsample_factor[1])
 
-    obj_scan = obj_scan[:, 0:new_size1, 0:new_size2]
-    blank_scan = blank_scan[:, 0:new_size1, 0:new_size2]
-    dark_scan = dark_scan[:, 0:new_size1, 0:new_size2]
+    obj_scan_corrected = obj_scan_corrected[:, 0:new_size1, 0:new_size2]
+    blank_scan_corrected = blank_scan_corrected[:, 0:new_size1, 0:new_size2]
 
-    obj_scan = obj_scan.reshape(obj_scan.shape[0], obj_scan.shape[1] // downsample_factor[0], downsample_factor[0],
-                                obj_scan.shape[2] // downsample_factor[1], downsample_factor[1]).sum((2, 4))
-    blank_scan = blank_scan.reshape(blank_scan.shape[0], blank_scan.shape[1] // downsample_factor[0],
+    obj_scan_corrected = obj_scan_corrected.reshape(obj_scan_corrected.shape[0], obj_scan_corrected.shape[1] // downsample_factor[0], downsample_factor[0],
+                                obj_scan_corrected.shape[2] // downsample_factor[1], downsample_factor[1]).sum((2, 4))
+    blank_scan_corrected = blank_scan_corrected.reshape(blank_scan_corrected.shape[0], blank_scan_corrected.shape[1] // downsample_factor[0],
                                     downsample_factor[0],
-                                    blank_scan.shape[2] // downsample_factor[1], downsample_factor[1]).sum((2, 4))
-    dark_scan = dark_scan.reshape(dark_scan.shape[0], dark_scan.shape[1] // downsample_factor[0], downsample_factor[0],
-                                  dark_scan.shape[2] // downsample_factor[1], downsample_factor[1]).sum((2, 4))
+                                    blank_scan_corrected.shape[2] // downsample_factor[1], downsample_factor[1]).sum((2, 4))
 
-    return obj_scan, blank_scan, dark_scan
+    return obj_scan_corrected, blank_scan_corrected
 
 
-def _crop_scans(obj_scan, blank_scan, dark_scan, crop_factor=[(0, 0), (1, 1)]):
+def _crop_scans(obj_scan_corrected, blank_scan_corrected, crop_factor=[(0, 0), (1, 1)]):
     """Crops given scans with given factor.
 
     Args:
-        obj_scan (float): A stack of sinograms. 3D numpy array, (num_views, num_slices, num_channels).
-        blank_scan (float) : A blank scan. 3D numpy array, (1, num_slices, num_channels).
-        dark_scan (float): A dark scan. 3D numpy array, (1, num_slices, num_channels).
+        obj_scan_corrected (float): A stack of sinograms. 3D numpy array, (num_views, num_slices, num_channels).
+        blank_scan_corrected (float) : A blank scan. 3D numpy array, (1, num_slices, num_channels).
         crop_factor ([(int, int),(int, int)] or [int, int, int, int]):
             [Default=[(0, 0), (1, 1)]] Two points to define the bounding box. Sequence of [(r0, c0), (r1, c1)] or
             [r0, c0, r1, c1], where 0<=r0 <= r1<=1 and 0<=c0 <= c1<=1.
 
     Returns:
         Cropped scans
-        - **obj_scan** (*ndarray, float*): A stack of sinograms. 3D numpy array, (num_views, num_slices, num_channels).
-        - **blank_scan** (*ndarray, float*): A blank scan. 3D numpy array, (1, num_slices, num_channels).
-        - **dark_scan** (*ndarray, float*): A dark scan. 3D numpy array, (1, num_slices, num_channels).
+        - **obj_scan_corrected** (*ndarray, float*): A stack of sinograms. 3D numpy array, (num_views, num_slices, num_channels).
+        - **blank_scan_corrected** (*ndarray, float*): A blank scan. 3D numpy array, (1, num_slices, num_channels).
     """
     if isinstance(crop_factor[0], (list, tuple)):
         (r0, c0), (r1, c1) = crop_factor
@@ -115,46 +108,48 @@ def _crop_scans(obj_scan, blank_scan, dark_scan, crop_factor=[(0, 0), (1, 1)]):
                                                       'or [r0, c0, r1, c1], where 1>=r1 >= r0>=0 and 1>=c1 >= c0>=0.'
     assert math.isclose(c0, 1 - c1), 'horizontal crop limits must be symmetric'
 
-    N1_lo = round(r0 * obj_scan.shape[1])
-    N2_lo = round(c0 * obj_scan.shape[2])
+    N1_lo = round(r0 * obj_scan_corrected.shape[1])
+    N2_lo = round(c0 * obj_scan_corrected.shape[2])
 
-    N1_hi = round(r1 * obj_scan.shape[1])
-    N2_hi = round(c1 * obj_scan.shape[2])
+    N1_hi = round(r1 * obj_scan_corrected.shape[1])
+    N2_hi = round(c1 * obj_scan_corrected.shape[2])
 
-    obj_scan = obj_scan[:, N1_lo:N1_hi, N2_lo:N2_hi]
-    blank_scan = blank_scan[:, N1_lo:N1_hi, N2_lo:N2_hi]
-    dark_scan = dark_scan[:, N1_lo:N1_hi, N2_lo:N2_hi]
+    obj_scan_corrected = obj_scan_corrected[:, N1_lo:N1_hi, N2_lo:N2_hi]
+    blank_scan_corrected = blank_scan_corrected[:, N1_lo:N1_hi, N2_lo:N2_hi]
 
-    return obj_scan, blank_scan, dark_scan
+    return obj_scan_corrected, blank_scan_corrected
 
-def replace_value(sino, indices, window_size_half=(2,2)):
-    num_views, num_det_rows, num_det_channels = sino.shape
-    for (k,i,j) in indices:
-        print('old sino entry val = ', sino[k,i,j], end =" ")
-q       sino[k,i,j] = np.median(sino[k, 
-                                     max(0, i-window_size_half):min(num_det_rows, i+window_size_half+1),
-                                     max(0, j-window_size_half):min(num_det_channels, j+window_size_half+1)])
+def replace_value(scan, defect_pixel_loc_list, defect_pixel_rot=1, window_size_half=2, verbose=0):
+    num_rot_forward = 4-defect_pixel_rot
+    num_rot_backward = defect_pixel_rot
+    scan = np.rot90(scan, num_rot_forward, axes=(1, 2))
+    num_views, num_det_rows, num_det_channels = scan.shape
+    for k in range(num_views):
+        for [i, j] in defect_pixel_loc_list:
+            if verbose and k==0:
+                print(f'Entry ({k}, {i}, {j}): old scan entry val = ', scan[k,i,j], end =" ")
+            scan[k,i,j] = np.median(scan[k, 
+                                         max(0, i-window_size_half):min(num_det_rows, i+window_size_half+1),
+                                         max(0, j-window_size_half):min(num_det_channels, j+window_size_half+1)])
 
-        print('; replaced sino entry val = ', sino[k,i,j])
+            if verbose and k==0:
+                print('; replaced scan entry val = ', scan[k,i,j])
+    
+    scan = np.rot90(scan, num_rot_backward, axes=(1, 2))
+    return scan
 
-def _compute_sino_and_weight_mask_from_scans(obj_scan, blank_scan, dark_scan):
-    """Computes sinogram data and weights mask base on given object scan, blank scan, and dark scan. The weights mask is used to filter out negative values in the corrected object scan and blank scan. For real CT dataset weights mask should be used when calculating sinogram weights.
+def _compute_sino_and_weight_mask_from_scans(obj_scan_corrected, blank_scan_corrected):
+    """Computes sinogram data and weights mask base on given the corrected object scan and blank scan. The weights mask is used to filter out negative values in the corrected object scan and blank scan. For real CT dataset weights mask should be used when calculating sinogram weights.
     
     Args:
         obj_scan (ndarray): A stack of sinograms. 3D numpy array, (num_views, num_slices, num_channels).
-        blank_scan (ndarray) : A blank scan. 3D numpy array, (num_sampled_scans, num_slices, num_channels).
-        dark_scan (ndarray):  A dark scan. 3D numpy array, (num_sampled_scans, num_slices, num_channels).
+        blank_scan_corrected (ndarray) : A blank scan. 3D numpy array, (num_sampled_scans, num_slices, num_channels).
     Returns:
         A tuple (sino, weight_mask) containing:
         - **sino** (*ndarray*): Preprocessed sinogram with shape (num_views, num_slices, num_channels).
         - **weight_mask** (*ndarray*): A binary mask for sinogram weights. 
 
     """
-    blank_scan_mean = 0 * obj_scan + np.mean(blank_scan, axis=0, keepdims=True)
-    dark_scan_mean = 0 * obj_scan + np.mean(dark_scan, axis=0, keepdims=True)
-
-    obj_scan_corrected = (obj_scan - dark_scan_mean)
-    blank_scan_corrected = (blank_scan_mean - dark_scan_mean)
     sino = -np.log(obj_scan_corrected / blank_scan_corrected)
     weight_mask = (obj_scan_corrected > 0) & (blank_scan_corrected > 0) 
     print('Set sinogram weight corresponding to nan and inf pixels to 0.')
@@ -706,7 +701,7 @@ def NSI_process_raw_scans(radiographs_directory, NSI_system_params,
 
 def compute_sino_from_scans(obj_scan, blank_scan=None, dark_scan=None,
                             downsample_factor=[1, 1], crop_factor=[(0, 0), (1, 1)],
-                            weight_type='unweighted', defect_pixel_loc_list=None, defect_pixel_rot=2):
+                            weight_type='unweighted', defect_pixel_loc_list=None, defect_pixel_rot=1):
     """Given a set of object scan, blank scan, and dark scan, compute the sinogram used for reconstruction. This function will (optionally) downsample and crop the scans before computing the sinogram. It is assumed that the object scans, blank scan and dark scan all have compatible sizes. 
     
     Args:
@@ -735,33 +730,26 @@ def compute_sino_from_scans(obj_scan, blank_scan=None, dark_scan=None,
     if dark_scan is None:
         dark_scan = np.expand_dims(0 * obj_scan[0], axis=0)
     
+    blank_scan_mean = 0 * obj_scan + np.mean(blank_scan, axis=0, keepdims=True)
+    dark_scan_mean = 0 * obj_scan + np.mean(dark_scan, axis=0, keepdims=True)
+    obj_scan_corrected = (obj_scan - dark_scan_mean)
+    blank_scan_corrected = (blank_scan_mean - dark_scan_mean)
+    if defect_pixel_loc_list is not None:
+        blank_scan_corrected = replace_value(blank_scan_corrected, defect_pixel_loc_list, defect_pixel_rot=defect_pixel_rot, verbose=1)
+        obj_scan_corrected = replace_value(obj_scan_corrected, defect_pixel_loc_list, defect_pixel_rot=defect_pixel_rot)
 
     # downsampling in pixels
-    obj_scan, blank_scan, dark_scan = _downsample_scans(obj_scan, blank_scan, dark_scan,
-                                                        downsample_factor=downsample_factor)
+    obj_scan_corrected, blank_scan_corrected, = _downsample_scans(obj_scan_corrected, blank_scan_corrected,
+                                                                  downsample_factor=downsample_factor)
     # cropping in pixels
-    obj_scan, blank_scan, dark_scan = _crop_scans(obj_scan, blank_scan, dark_scan,
-                                                  crop_factor=crop_factor)
+    obj_scan_corrected, blank_scan_corrected, = _crop_scans(obj_scan_corrected, blank_scan_corrected,
+                                                            crop_factor=crop_factor)
     # should add something here to check the validity of downsampled scan pixel values?
-    sino, weight_mask = _compute_sino_and_weight_mask_from_scans(obj_scan, blank_scan, dark_scan)
+    sino, weight_mask = _compute_sino_and_weight_mask_from_scans(obj_scan_corrected, blank_scan_corrected)
     print('weight_mask shape = ', weight_mask.shape)
     # compute sinogram weights
     weights = cone3D.calc_weights(sino, weight_type=weight_type)
     # set the sino and weights corresponding to invalid sinogram entries to 0.
     weights[weight_mask == 0] = 0.
     sino[weight_mask == 0] = 0.
-    # set defective pixel weights to be 0. 
-    if defect_pixel_loc_list is not None:
-        if crop_factor != [(0, 0), (1, 1)]:
-            print("Defective pixel information ignored because radiograph is cropped.")
-        else:
-            print("Setting defective sinogram pixel weight to 0 ...")
-            num_rot_forward = 4-defect_pixel_rot
-            num_rot_backward = defect_pixel_rot
-            weights = np.rot90(weights, num_rot_forward, axes=(1, 2))
-            for (r,c) in defect_pixel_loc_list:
-                r_ds = r//downsample_factor[0]
-                c_ds = c//downsample_factor[1]
-                weights[:,r_ds,c_ds]=False
-            weights = np.rot90(weights, num_rot_backward, axes=(1, 2))
     return sino.astype(np.float32), weights.astype(np.float32)
